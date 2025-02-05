@@ -30,16 +30,17 @@ public class CartController {
     }
 
     @GetMapping
-    public ResponseEntity<CartDTO> getCart(@AuthenticationPrincipal User user) {
+    public ResponseEntity<CartDTO> getCart() {
+        User user = userService.getCurrentUser();
         Cart cart = getOrCreateCart(user);
         return ResponseEntity.ok(cartTransformer.toDTO(cart));
     }
 
     @PostMapping
     public ResponseEntity<CartDTO> addToCart(
-            @AuthenticationPrincipal User user,
             @RequestParam Long bookId,
             @RequestParam Integer quantity) {
+        User user = userService.getCurrentUser();
         Cart cart = getOrCreateCart(user);
         final Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("Book not found"));
@@ -65,9 +66,9 @@ public class CartController {
 
     @PutMapping
     public ResponseEntity<CartDTO> updateCart(
-            @AuthenticationPrincipal User user,
             @RequestParam Long bookId,
             @RequestParam Integer quantity) {
+        User user = userService.getCurrentUser();
         Cart cart = getOrCreateCart(user);
         
         cart.getItems().stream()
@@ -84,8 +85,8 @@ public class CartController {
 
     @DeleteMapping("/{bookId}")
     public ResponseEntity<CartDTO> removeFromCart(
-            @AuthenticationPrincipal User user,
             @PathVariable Long bookId) {
+        User user = userService.getCurrentUser();
         Cart cart = getOrCreateCart(user);
         
         cart.getItems().removeIf(item -> item.getBook().getId().equals(bookId));

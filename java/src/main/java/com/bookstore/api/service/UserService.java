@@ -15,10 +15,13 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public UserDTO getCurrentUser() {
+    public User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email)
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return UserDTO.fromUser(user);
+    }
+
+    public UserDTO getCurrentUserDTO() {
+        return UserDTO.fromUser(getCurrentUser());
     }
 }
