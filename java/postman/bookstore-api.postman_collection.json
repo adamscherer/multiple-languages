@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "1234567-89ab-cdef-0123-456789abcdef",
     "name": "Bookstore API",
-    "description": "Collection for testing the Bookstore API authentication endpoints",
+    "description": "Collection for testing the Bookstore API endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -90,6 +90,207 @@
               "host": ["localhost"],
               "port": "8080",
               "path": ["api", "users", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "List Books",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/books?page=0&limit=10&sortBy=title&sortDir=asc&searchTerm=novel&category=fiction&author=John Doe",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "books"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "title"
+                },
+                {
+                  "key": "sortDir",
+                  "value": "asc"
+                },
+                {
+                  "key": "searchTerm",
+                  "value": "novel"
+                },
+                {
+                  "key": "category",
+                  "value": "fiction"
+                },
+                {
+                  "key": "author",
+                  "value": "John Doe"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Book Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/books/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "books", "1"]
+            }
+          }
+        },
+        {
+          "name": "Add New Book (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"The Great Novel\",\n    \"author\": \"John Doe\",\n    \"category\": \"fiction\",\n    \"price\": 29.99,\n    \"description\": \"A fascinating story about...\",\n    \"coverImageUrl\": \"https://example.com/cover.jpg\",\n    \"publishedDate\": \"2024-01-01\",\n    \"isbn\": \"978-3-16-148410-0\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/books",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "books"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shopping Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/cart",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cart"]
+            }
+          }
+        },
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/cart?bookId=1&quantity=2",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cart"],
+              "query": [
+                {
+                  "key": "bookId",
+                  "value": "1"
+                },
+                {
+                  "key": "quantity",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/cart?bookId=1&quantity=3",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cart"],
+              "query": [
+                {
+                  "key": "bookId",
+                  "value": "1"
+                },
+                {
+                  "key": "quantity",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove from Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8080/api/cart/1",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8080",
+              "path": ["api", "cart", "1"]
             }
           }
         }
