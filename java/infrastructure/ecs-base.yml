@@ -23,12 +23,14 @@ Resources:
       DefaultCapacityProviderStrategy:
         - CapacityProvider: FARGATE
           Weight: 1
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
       Configuration:
         ExecuteCommandConfiguration:
           Logging: OVERRIDE
           LogConfiguration:
             CloudWatchLogGroupName: !Ref LogGroup
-        ContainerInsights: ENABLED
 
   ExecutionRole:
     Type: AWS::IAM::Role
