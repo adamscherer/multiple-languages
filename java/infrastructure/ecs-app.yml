@@ -47,7 +47,8 @@ Resources:
           Essential: true
           PortMappings:
             - ContainerPort: !Ref ContainerPort
-            - Protocol: tcp
+              Protocol: tcp
+              HostPort: !Ref ContainerPort
           Environment:
             - Name: SPRING_PROFILES_ACTIVE
               Value: !Ref Environment
