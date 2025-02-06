@@ -1,0 +1,56 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'java/infrastructure/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy VPC Stack
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: ${{ github.event.inputs.environment || 'dev' }}-bookstore-vpc
+        template: java/infrastructure/vpc.yml
+        parameter-overrides: >
+          Environment=${{ github.event.inputs.environment || 'dev' }}
+        no-fail-on-empty-changeset: "1"
+
+    - name: Deploy ECS Stack
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: ${{ github.event.inputs.environment || 'dev' }}-bookstore-ecs
+        template: java/infrastructure/ecs.yml
+        parameter-overrides: >
+          Environment=${{ github.event.inputs.environment || 'dev' }},
+          JwtSecret=${{ secrets.JWT_SECRET }}
+        no-fail-on-empty-changeset: "1"

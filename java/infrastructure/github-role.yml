@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for GitHub Actions Deployment
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  
+  RepositoryName:
+    Type: String
+    Description: GitHub repository name
+
+Resources:
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: 
+        - sts.amazonaws.com
+      ThumbprintList:
+        - "6938fd4d98bab03faadb97b34396831e3780aea1"
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub github-actions-${RepositoryName}
+      Description: IAM role for GitHub Actions deployment
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !GetAtt GitHubOIDCProvider.Arn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub ${GitHubOrg}/${RepositoryName}:*
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+
+  GitHubActionsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub github-actions-${RepositoryName}-policy
+      Roles: 
+        - !Ref GitHubActionsRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # CloudFormation permissions
+          - Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeStacks
+              - cloudformation:ListStacks
+              - cloudformation:GetTemplateSummary
+              - cloudformation:ValidateTemplate
+            Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*
+
+          # ECR permissions
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:GetRepositoryPolicy
+              - ecr:DescribeRepositories
+              - ecr:ListImages
+              - ecr:DescribeImages
+              - ecr:BatchGetImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+            Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${RepositoryName}
+
+          # ECS permissions
+          - Effect: Allow
+            Action:
+              - ecs:UpdateService
+              - ecs:DescribeServices
+              - ecs:RegisterTaskDefinition
+              - ecs:ListTaskDefinitions
+              - ecs:DescribeTaskDefinition
+            Resource: '*'
+
+          # IAM permissions for ECS task roles
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+            Condition:
+              StringLike:
+                iam:PassedToService: ecs-tasks.amazonaws.com
+
+          # VPC permissions
+          - Effect: Allow
+            Action:
+              - ec2:CreateSecurityGroup
+              - ec2:DescribeSecurityGroups
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:RevokeSecurityGroupIngress
+              - ec2:CreateVpc
+              - ec2:DeleteVpc
+              - ec2:DescribeVpcs
+              - ec2:CreateSubnet
+              - ec2:DeleteSubnet
+              - ec2:DescribeSubnets
+              - ec2:CreateRouteTable
+              - ec2:DeleteRouteTable
+              - ec2:DescribeRouteTables
+              - ec2:CreateRoute
+              - ec2:DeleteRoute
+              - ec2:CreateInternetGateway
+              - ec2:DeleteInternetGateway
+              - ec2:AttachInternetGateway
+              - ec2:DetachInternetGateway
+              - ec2:DescribeInternetGateways
+            Resource: '*'
+
+          # Load Balancer permissions
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:CreateLoadBalancer
+              - elasticloadbalancing:DeleteLoadBalancer
+              - elasticloadbalancing:DescribeLoadBalancers
+              - elasticloadbalancing:ModifyLoadBalancerAttributes
+              - elasticloadbalancing:CreateTargetGroup
+              - elasticloadbalancing:DeleteTargetGroup
+              - elasticloadbalancing:DescribeTargetGroups
+              - elasticloadbalancing:ModifyTargetGroupAttributes
+              - elasticloadbalancing:CreateListener
+              - elasticloadbalancing:DeleteListener
+              - elasticloadbalancing:DescribeListeners
+            Resource: '*'
+
+          # CloudWatch Logs permissions
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:DeleteLogGroup
+              - logs:PutRetentionPolicy
+              - logs:DescribeLogGroups
+              - logs:CreateLogStream
+              - logs:DeleteLogStream
+              - logs:PutLogEvents
+              - logs:GetLogEvents
+              - logs:FilterLogEvents
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:*
+
+Outputs:
+  RoleARN:
+    Description: ARN of the GitHub Actions IAM Role
+    Value: !GetAtt GitHubActionsRole.Arn
+    Export:
+      Name: !Sub github-actions-${RepositoryName}-role-arn
