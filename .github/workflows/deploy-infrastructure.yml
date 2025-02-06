@@ -61,6 +61,18 @@ jobs:
           Environment=${{ github.event.inputs.environment || 'dev' }}
         no-fail-on-empty-changeset: "1"
 
+    - name: Check and cleanup failed ECS base stack
+      run: |
+        STACK_NAME="${{ github.event.inputs.environment || 'dev' }}-bookstore-ecs-base"
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+        
+        if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_ROLLBACK_COMPLETE" ]; then
+          echo "Stack is in $STACK_STATUS state. Deleting stack..."
+          aws cloudformation delete-stack --stack-name "$STACK_NAME"
+          aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+          echo "Stack deleted successfully"
+        fi
+
     - name: Deploy ECS Base Infrastructure
       uses: aws-actions/aws-cloudformation-github-deploy@v1
       with:
