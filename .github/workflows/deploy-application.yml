@@ -1,0 +1,70 @@
+name: Deploy Application
+
+on:
+  workflow_run:
+    workflows: ["Java Build and Publish"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      image_url:
+        description: 'Docker image URL with tag'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-application:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Get Image URL
+      id: get-image
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "image_url=${{ github.event.inputs.image_url }}" >> $GITHUB_OUTPUT
+        else
+          # Get the latest image URL from ECR or another source
+          REPO_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.environment || 'dev' }}-bookstore"
+          IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ github.event.inputs.environment || 'dev' }}-bookstore --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+          echo "image_url=${REPO_URI}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Deploy Application Stack
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: ${{ github.event.inputs.environment || 'dev' }}-bookstore-app
+        template: java/infrastructure/ecs-app.yml
+        parameter-overrides: >
+          Environment=${{ github.event.inputs.environment || 'dev' }},
+          ImageUrl=${{ steps.get-image.outputs.image_url }},
+          JwtSecret=${{ secrets.JWT_SECRET }}
+        capabilities: CAPABILITY_IAM
+        no-fail-on-empty-changeset: "1"

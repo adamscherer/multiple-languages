@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS Application Deployment for Bookstore API
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+
+  ImageUrl:
+    Type: String
+    Description: Docker image URL with tag
+
+  ContainerPort:
+    Type: Number
+    Default: 8080
+    Description: Port number the container exposes
+
+  DesiredCount:
+    Type: Number
+    Default: 2
+    Description: Desired number of tasks
+
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Description: JWT secret for authentication
+
+Resources:
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${Environment}-bookstore-task
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: 
+        Fn::ImportValue: !Sub ${Environment}-bookstore-execution-role-arn
+      TaskRoleArn: 
+        Fn::ImportValue: !Sub ${Environment}-bookstore-task-role-arn
+      ContainerDefinitions:
+        - Name: bookstore-api
+          Image: !Ref ImageUrl
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          Environment:
+            - Name: SPRING_PROFILES_ACTIVE
+              Value: !Ref Environment
+            - Name: JWT_SECRET
+              Value: !Ref JwtSecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub ${Environment}-bookstore-log-group-name
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${Environment}-bookstore-service
+      Cluster:
+        Fn::ImportValue: !Sub ${Environment}-bookstore-cluster-name
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${Environment}-bookstore-container-sg-id
+          Subnets:
+            - Fn::ImportValue: !Sub ${Environment}-bookstore-public-subnet-1
+            - Fn::ImportValue: !Sub ${Environment}-bookstore-public-subnet-2
+      LoadBalancers:
+        - ContainerName: bookstore-api
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn:
+            Fn::ImportValue: !Sub ${Environment}-bookstore-target-group-arn
+
+Outputs:
+  ServiceName:
+    Description: ECS Service Name
+    Value: !GetAtt Service.Name
+    Export:
+      Name: !Sub ${Environment}-bookstore-service-name
