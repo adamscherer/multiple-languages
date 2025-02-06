@@ -34,10 +34,10 @@ Resources:
               Federated: !GetAtt GitHubOIDCProvider.Arn
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
-              StringLike:
-                token.actions.githubusercontent.com:sub: !Sub ${GitHubOrg}/${RepositoryName}:*
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${RepositoryName}:*
 
   GitHubActionsPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -58,6 +58,13 @@ Resources:
               - cloudformation:ListStacks
               - cloudformation:GetTemplateSummary
               - cloudformation:ValidateTemplate
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ListChangeSets
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
             Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/*
 
           # ECR permissions
@@ -107,6 +114,7 @@ Resources:
               - ec2:CreateVpc
               - ec2:DeleteVpc
               - ec2:DescribeVpcs
+              - ec2:ModifyVpcAttribute
               - ec2:CreateSubnet
               - ec2:DeleteSubnet
               - ec2:DescribeSubnets
@@ -120,6 +128,9 @@ Resources:
               - ec2:AttachInternetGateway
               - ec2:DetachInternetGateway
               - ec2:DescribeInternetGateways
+              - ec2:DescribeVpcAttribute
+              - ec2:DescribeAccountAttributes
+              - ec2:DescribeAvailabilityZones
             Resource: '*'
 
           # Load Balancer permissions

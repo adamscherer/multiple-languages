@@ -40,6 +40,18 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: Check and cleanup failed VPC stack
+      run: |
+        STACK_NAME="${{ github.event.inputs.environment || 'dev' }}-bookstore-vpc"
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+        
+        if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_ROLLBACK_COMPLETE" ]; then
+          echo "Stack is in $STACK_STATUS state. Deleting stack..."
+          aws cloudformation delete-stack --stack-name "$STACK_NAME"
+          aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+          echo "Stack deleted successfully"
+        fi
+
     - name: Deploy VPC Stack
       uses: aws-actions/aws-cloudformation-github-deploy@v1
       with:
