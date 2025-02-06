@@ -1,0 +1,69 @@
+name: Teardown Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to teardown'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      confirm_teardown:
+        description: 'Type CONFIRM to proceed with teardown'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  teardown:
+    name: Teardown Infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    if: github.event.inputs.confirm_teardown == 'CONFIRM'
+
+    steps:
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Delete Application Stack
+      run: |
+        echo "Deleting application stack..."
+        aws cloudformation delete-stack \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-app
+        aws cloudformation wait stack-delete-complete \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-app
+
+    - name: Delete ECS Base Stack
+      run: |
+        echo "Deleting ECS base stack..."
+        aws cloudformation delete-stack \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-ecs-base
+        aws cloudformation wait stack-delete-complete \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-ecs-base
+
+    - name: Delete VPC Stack
+      run: |
+        echo "Deleting VPC stack..."
+        aws cloudformation delete-stack \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-vpc
+        aws cloudformation wait stack-delete-complete \
+          --stack-name ${{ github.event.inputs.environment }}-bookstore-vpc
+
+    - name: Cleanup CloudWatch Logs
+      run: |
+        echo "Cleaning up CloudWatch log groups..."
+        aws logs delete-log-group \
+          --log-group-name /ecs/${{ github.event.inputs.environment }}-bookstore-api || true

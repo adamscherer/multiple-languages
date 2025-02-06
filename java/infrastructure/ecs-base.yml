@@ -23,6 +23,12 @@ Resources:
       DefaultCapacityProviderStrategy:
         - CapacityProvider: FARGATE
           Weight: 1
+      Configuration:
+        ExecuteCommandConfiguration:
+          Logging: OVERRIDE
+          LogConfiguration:
+            CloudWatchLogGroupName: !Ref LogGroup
+        ContainerInsights: ENABLED
 
   ExecutionRole:
     Type: AWS::IAM::Role
@@ -85,6 +91,11 @@ Resources:
           FromPort: !Ref ContainerPort
           ToPort: !Ref ContainerPort
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer

@@ -44,13 +44,25 @@ Resources:
       ContainerDefinitions:
         - Name: bookstore-api
           Image: !Ref ImageUrl
+          Essential: true
           PortMappings:
             - ContainerPort: !Ref ContainerPort
+            - Protocol: tcp
           Environment:
             - Name: SPRING_PROFILES_ACTIVE
               Value: !Ref Environment
             - Name: JWT_SECRET
               Value: !Ref JwtSecret
+            - Name: SERVER_PORT
+              Value: !Ref ContainerPort
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - curl -f http://localhost:${ContainerPort}/actuator/health || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -58,6 +70,8 @@ Resources:
                 Fn::ImportValue: !Sub ${Environment}-bookstore-log-group-name
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
+          LinuxParameters:
+            InitProcessEnabled: true
 
   Service:
     Type: AWS::ECS::Service
