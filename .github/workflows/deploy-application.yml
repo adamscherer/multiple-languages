@@ -73,6 +73,33 @@ jobs:
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
 
+    - name: Check and cleanup failed application stack
+      if: github.event_name != 'pull_request'
+      run: |
+        STACK_NAME="${{ github.event.inputs.environment || 'dev' }}-bookstore-app"
+        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+        
+        if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_ROLLBACK_COMPLETE" ]; then
+          echo "Stack is in $STACK_STATUS state. Deleting stack..."
+          aws cloudformation delete-stack --stack-name "$STACK_NAME"
+          
+          echo "Waiting for stack deletion to complete..."
+          while true; do
+            CURRENT_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+            
+            if [ "$CURRENT_STATUS" = "DOES_NOT_EXIST" ]; then
+              echo "Stack deleted successfully"
+              break
+            elif [[ "$CURRENT_STATUS" == *"FAILED"* ]]; then
+              echo "Stack deletion failed with status: $CURRENT_STATUS"
+              exit 1
+            fi
+            
+            echo "Current status: $CURRENT_STATUS. Waiting..."
+            sleep 10
+          done
+        fi
+
     - name: Deploy Application Stack
       if: github.event_name != 'pull_request'
       uses: aws-actions/aws-cloudformation-github-deploy@v1
