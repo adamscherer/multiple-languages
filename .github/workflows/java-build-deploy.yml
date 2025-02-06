@@ -1,0 +1,87 @@
+name: Java Build and Deploy
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'java/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'java/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: ${{ github.event.inputs.environment || 'dev' }}-bookstore
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Build with Maven
+      run: |
+        cd java
+        mvn clean package -DskipTests
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Create ECR repository if not exists
+      run: |
+        aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} || \
+        aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./java
+        push: true
+        tags: |
+          ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+
+    - name: Deploy Application Stack
+      if: github.event_name != 'pull_request'
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: ${{ github.event.inputs.environment || 'dev' }}-bookstore-app
+        template: java/infrastructure/ecs-app.yml
+        parameter-overrides: >
+          Environment=${{ github.event.inputs.environment || 'dev' }},
+          ImageUrl=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }},
+          JwtSecret=${{ secrets.JWT_SECRET }}
+        capabilities: CAPABILITY_IAM
+        no-fail-on-empty-changeset: "1"
